@@ -72,6 +72,11 @@ func cmdStart() {
 		log.Fatalf("config: %v", err)
 	}
 
+	// Ensure portgate.localhost system mapping exists for the dashboard
+	if err := cs.EnsureDefaultMapping(*dashPort); err != nil {
+		log.Printf("warning: could not register default mapping: %v", err)
+	}
+
 	hub := NewHub(cs)
 	go hub.Run()
 

@@ -35,6 +35,7 @@ type DomainMapping struct {
 	Domain     string    `json:"domain"`
 	TargetPort int       `json:"targetPort"`
 	CreatedAt  time.Time `json:"createdAt"`
+	System     bool      `json:"system,omitempty"`
 }
 
 // Config is the persisted configuration.

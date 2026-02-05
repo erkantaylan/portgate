@@ -112,6 +112,12 @@ main {
   border: 1px solid rgba(210, 153, 34, 0.3);
 }
 
+.source-badge.system {
+  background: rgba(63, 185, 80, 0.15);
+  color: var(--green);
+  border: 1px solid rgba(63, 185, 80, 0.3);
+}
+
 .btn-sm {
   padding: 0.25rem 0.5rem;
   font-size: 0.7rem;

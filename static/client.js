@@ -76,13 +76,20 @@
     el.innerHTML = state.mappings.map(function(m) {
       const port = state.ports.find(function(p) { return p.port === m.targetPort; });
       const online = port && port.healthy;
+      const systemBadge = m.system
+        ? '<span class="source-badge system">system</span>'
+        : '';
       return '<div class="mapping-item">' +
         '<div class="mapping-info">' +
           '<span class="status-dot ' + (online ? 'online' : 'offline') + '"></span>' +
           '<span class="mapping-domain">' + escapeHtml(m.domain) + '.localhost</span>' +
+          systemBadge +
           '<span class="mapping-target">→ :' + m.targetPort + '</span>' +
         '</div>' +
-        '<button class="btn btn-danger" onclick="removeMapping(\'' + escapeHtml(m.domain) + '\')">Remove</button>' +
+        (m.system
+          ? ''
+          : '<button class="btn btn-danger" onclick="removeMapping(\'' + escapeHtml(m.domain) + '\')">Remove</button>'
+        ) +
       '</div>';
     }).join('');
   }

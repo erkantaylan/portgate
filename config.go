@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 )
 
 // ConfigStore handles loading and saving config to JSON.
@@ -187,6 +188,32 @@ func (cs *ConfigStore) AddManualPort(mp ManualPort) error {
 		}
 	}
 	cs.cfg.ManualPorts = append(filtered, mp)
+	cs.mu.Unlock()
+	return cs.Save()
+}
+
+// EnsureDefaultMapping ensures the portgate system mapping exists for the dashboard port.
+func (cs *ConfigStore) EnsureDefaultMapping(dashPort int) error {
+	cs.mu.Lock()
+	for _, m := range cs.cfg.Mappings {
+		if m.Domain == "portgate" && m.TargetPort == dashPort && m.System {
+			cs.mu.Unlock()
+			return nil
+		}
+	}
+	// Remove any stale portgate mapping and add the system one
+	filtered := make([]DomainMapping, 0, len(cs.cfg.Mappings))
+	for _, m := range cs.cfg.Mappings {
+		if m.Domain != "portgate" {
+			filtered = append(filtered, m)
+		}
+	}
+	cs.cfg.Mappings = append(filtered, DomainMapping{
+		Domain:     "portgate",
+		TargetPort: dashPort,
+		CreatedAt:  time.Now(),
+		System:     true,
+	})
 	cs.mu.Unlock()
 	return cs.Save()
 }

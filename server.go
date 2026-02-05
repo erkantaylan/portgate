@@ -233,6 +233,12 @@ func DashboardHandler(hub *Hub) http.Handler {
 				http.Error(w, "domain required", http.StatusBadRequest)
 				return
 			}
+			for _, m := range hub.config.Mappings() {
+				if m.Domain == domain && m.System {
+					http.Error(w, "cannot delete system mapping", http.StatusForbidden)
+					return
+				}
+			}
 			if err := hub.config.RemoveMapping(domain); err != nil {
 				http.Error(w, "save failed", http.StatusInternalServerError)
 				return
