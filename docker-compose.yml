@@ -1,0 +1,10 @@
+services:
+  portgate:
+    build: .
+    network_mode: host
+    volumes:
+      - portgate-config:/root/.config/portgate
+    restart: unless-stopped
+
+volumes:
+  portgate-config:
