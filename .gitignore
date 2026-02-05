@@ -1,0 +1,6 @@
+.runtime/
+.claude/
+.logs/
+.beads/
+portgate
+portgate.exe

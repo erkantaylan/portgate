@@ -15,14 +15,14 @@ type ConfigStore struct {
 }
 
 // NewConfigStore creates a ConfigStore using the given path.
-// If path is empty, defaults to ~/.config/portgate/config.json.
+// If path is empty, uses a platform-appropriate default location.
 func NewConfigStore(path string) (*ConfigStore, error) {
 	if path == "" {
-		home, err := os.UserHomeDir()
+		var err error
+		path, err = defaultConfigPath()
 		if err != nil {
 			return nil, err
 		}
-		path = filepath.Join(home, ".config", "portgate", "config.json")
 	}
 	cs := &ConfigStore{path: path, cfg: Config{ScanIntervalSec: 10}}
 	if err := cs.load(); err != nil && !os.IsNotExist(err) {

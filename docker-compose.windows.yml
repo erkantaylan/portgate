@@ -1,0 +1,12 @@
+services:
+  portgate:
+    build: .
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - portgate-config:/root/.config/portgate
+    restart: unless-stopped
+
+volumes:
+  portgate-config:

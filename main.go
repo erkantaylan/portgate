@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -11,7 +12,6 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"syscall"
 	"time"
 )
 
@@ -46,6 +46,11 @@ func main() {
 }
 
 func cmdStart() {
+	startFlags := flag.NewFlagSet("start", flag.ExitOnError)
+	dashPort := startFlags.Int("dashboard-port", 8080, "dashboard listen port")
+	proxyPort := startFlags.Int("proxy-port", 80, "reverse proxy listen port")
+	startFlags.Parse(os.Args[2:])
+
 	cs, err := NewConfigStore("")
 	if err != nil {
 		log.Fatalf("config: %v", err)
@@ -63,23 +68,26 @@ func cmdStart() {
 
 	go scanner.Run(ctx)
 
-	// Dashboard on :8080
-	dashboardHandler := DashboardHandler(hub)
-	dashSrv := &http.Server{Addr: ":8080", Handler: dashboardHandler}
+	dashAddr := fmt.Sprintf(":%d", *dashPort)
+	proxyAddr := fmt.Sprintf(":%d", *proxyPort)
 
-	// Reverse proxy on :80
-	proxyHandler := ProxyHandler(hub, "127.0.0.1:8080")
-	proxySrv := &http.Server{Addr: ":80", Handler: proxyHandler}
+	// Dashboard
+	dashboardHandler := DashboardHandler(hub)
+	dashSrv := &http.Server{Addr: dashAddr, Handler: dashboardHandler}
+
+	// Reverse proxy
+	proxyHandler := ProxyHandler(hub, fmt.Sprintf("127.0.0.1:%d", *dashPort))
+	proxySrv := &http.Server{Addr: proxyAddr, Handler: proxyHandler}
 
 	go func() {
-		log.Printf("Dashboard listening on :8080")
+		log.Printf("Dashboard listening on %s", dashAddr)
 		if err := dashSrv.ListenAndServe(); err != http.ErrServerClosed {
 			log.Fatalf("dashboard: %v", err)
 		}
 	}()
 
 	go func() {
-		log.Printf("Proxy listening on :80")
+		log.Printf("Proxy listening on %s", proxyAddr)
 		if err := proxySrv.ListenAndServe(); err != http.ErrServerClosed {
 			log.Fatalf("proxy: %v", err)
 		}
@@ -88,7 +96,7 @@ func cmdStart() {
 	log.Println("Portgate started")
 
 	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(sig, shutdownSignals...)
 	<-sig
 
 	log.Println("Shutting down...")
