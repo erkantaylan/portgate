@@ -19,7 +19,8 @@ var version = "dev"
 
 func main() {
 	if len(os.Args) < 2 {
-		os.Args = append(os.Args, "start")
+		cmdHelp()
+		return
 	}
 
 	switch os.Args[1] {
@@ -55,10 +56,37 @@ func main() {
 			os.Exit(1)
 		}
 		cmdRemovePort(os.Args[2])
+	case "version", "--version", "-v":
+		cmdVersion()
+	case "update":
+		cmdUpdate()
+	case "help", "--help", "-h":
+		cmdHelp()
 	default:
-		fmt.Fprintf(os.Stderr, "unknown command: %s\ncommands: start, add, remove, list, status, scan-range, add-port, remove-port\n", os.Args[1])
+		fmt.Fprintf(os.Stderr, "Unknown command: %s\n\n", os.Args[1])
+		cmdHelp()
 		os.Exit(1)
 	}
+}
+
+func cmdHelp() {
+	fmt.Printf(`portgate %s — Local port discovery and reverse proxy
+
+Usage: portgate <command> [options]
+
+Commands:
+  start                        Start the proxy and dashboard server
+  add <domain> <port>          Map a subdomain to a port
+  remove <domain>              Remove a domain mapping
+  list                         List current domain mappings
+  status                       Show running status and discovered ports
+  add-port <port> [options]    Manually register a port
+  remove-port <port>           Remove a manually registered port
+  scan-range <add|remove|list> Manage port scan ranges
+  update                       Check for and apply updates
+  version                      Show current version
+  help                         Show this help message
+`, version)
 }
 
 func cmdStart() {
@@ -113,6 +141,8 @@ func cmdStart() {
 			log.Fatalf("proxy: %v", err)
 		}
 	}()
+
+	go backgroundUpdateCheck()
 
 	log.Println("Portgate started")
 

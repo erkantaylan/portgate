@@ -1,14 +1,17 @@
-.PHONY: help build build-windows build-all run run-linux run-windows docker-build docker-up docker-down clean install-service uninstall-service status-service
+.PHONY: help build build-windows build-all run run-linux run-windows docker-build docker-up docker-down clean install-service uninstall-service status-service release
 
 BINARY      := portgate
 BINARY_WIN  := portgate.exe
+VERSION     ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+LDFLAGS     := -X main.version=$(VERSION)
 
 help: ## Show available targets
 	@echo "Available targets:"
 	@echo "  help               Show available targets"
-	@echo "  build              Build for Linux"
+	@echo "  build              Build for Linux (VERSION=$(VERSION))"
 	@echo "  build-windows      Cross-compile for Windows amd64"
 	@echo "  build-all          Build for both Linux and Windows"
+	@echo "  release            Build release binaries for all platforms"
 	@echo "  run                Build and run on Linux"
 	@echo "  run-linux          Alias for run"
 	@echo "  run-windows        Cross-compile Windows executable"
@@ -21,12 +24,12 @@ help: ## Show available targets
 	@echo "  status-service     Check portgate service status"
 
 build: ## Build for Linux
-	go build -o $(BINARY) .
+	go build -ldflags "$(LDFLAGS)" -o $(BINARY) .
 
 build-windows: export GOOS := windows
 build-windows: export GOARCH := amd64
 build-windows: ## Cross-compile for Windows (amd64)
-	go build -o $(BINARY_WIN) .
+	go build -ldflags "$(LDFLAGS)" -o $(BINARY_WIN) .
 
 build-all: build build-windows ## Build for both Linux and Windows
 
@@ -46,6 +49,10 @@ docker-up: ## Start containers in background
 
 docker-down: ## Stop containers
 	docker compose down
+
+release: ## Build release binaries for all platforms (VERSION=v1.0.0)
+	GOOS=linux GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o portgate-linux-amd64 .
+	GOOS=windows GOARCH=amd64 go build -ldflags "$(LDFLAGS)" -o portgate-windows-amd64.exe .
 
 ifeq ($(OS),Windows_NT)
 
