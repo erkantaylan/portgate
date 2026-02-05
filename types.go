@@ -7,7 +7,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// DiscoveredPort represents a port found by the scanner.
+// DiscoveredPort represents a port found by the scanner or registered manually.
 type DiscoveredPort struct {
 	Port        int       `json:"port"`
 	Protocol    string    `json:"protocol"`
@@ -15,6 +15,19 @@ type DiscoveredPort struct {
 	Title       string    `json:"title"`
 	Healthy     bool      `json:"healthy"`
 	LastSeen    time.Time `json:"lastSeen"`
+	Source      string    `json:"source"` // "scan" or "manual"
+}
+
+// ManualPort is a user-registered port persisted in config.
+type ManualPort struct {
+	Port int    `json:"port"`
+	Name string `json:"name,omitempty"`
+}
+
+// ScanRange defines a range of ports to scan.
+type ScanRange struct {
+	Start int `json:"start"`
+	End   int `json:"end"`
 }
 
 // DomainMapping maps a subdomain to a target port.
@@ -27,7 +40,21 @@ type DomainMapping struct {
 // Config is the persisted configuration.
 type Config struct {
 	Mappings        []DomainMapping `json:"mappings"`
-	ScanIntervalSec int            `json:"scanIntervalSec"`
+	ScanIntervalSec int             `json:"scanIntervalSec"`
+	ScanRanges      []ScanRange     `json:"scanRanges,omitempty"`
+	ManualPorts     []ManualPort    `json:"manualPorts,omitempty"`
+}
+
+// PortRequest is the POST body for registering a manual port.
+type PortRequest struct {
+	Port int    `json:"port"`
+	Name string `json:"name,omitempty"`
+}
+
+// ScanRangeRequest is the POST body for adding/removing a scan range.
+type ScanRangeRequest struct {
+	Start int `json:"start"`
+	End   int `json:"end"`
 }
 
 // Hub coordinates scanner, proxy, config, and WebSocket clients.

@@ -14,6 +14,14 @@ type ConfigStore struct {
 	cfg  Config
 }
 
+// DefaultScanRanges are used when no custom ranges are configured.
+var DefaultScanRanges = []ScanRange{
+	{Start: 3000, End: 3999},
+	{Start: 4000, End: 4099},
+	{Start: 5000, End: 5999},
+	{Start: 8000, End: 8999},
+}
+
 // NewConfigStore creates a ConfigStore using the given path.
 // If path is empty, uses a platform-appropriate default location.
 func NewConfigStore(path string) (*ConfigStore, error) {
@@ -106,4 +114,93 @@ func (cs *ConfigStore) LookupPort(domain string) int {
 		}
 	}
 	return 0
+}
+
+// ScanRanges returns the configured scan ranges, or defaults if none set.
+func (cs *ConfigStore) ScanRanges() []ScanRange {
+	cs.mu.RLock()
+	defer cs.mu.RUnlock()
+	if len(cs.cfg.ScanRanges) == 0 {
+		return DefaultScanRanges
+	}
+	out := make([]ScanRange, len(cs.cfg.ScanRanges))
+	copy(out, cs.cfg.ScanRanges)
+	return out
+}
+
+// AddScanRange adds a scan range and persists.
+func (cs *ConfigStore) AddScanRange(sr ScanRange) error {
+	cs.mu.Lock()
+	// Initialize from defaults if empty
+	if len(cs.cfg.ScanRanges) == 0 {
+		cs.cfg.ScanRanges = make([]ScanRange, len(DefaultScanRanges))
+		copy(cs.cfg.ScanRanges, DefaultScanRanges)
+	}
+	// Avoid duplicates
+	for _, existing := range cs.cfg.ScanRanges {
+		if existing.Start == sr.Start && existing.End == sr.End {
+			cs.mu.Unlock()
+			return nil
+		}
+	}
+	cs.cfg.ScanRanges = append(cs.cfg.ScanRanges, sr)
+	cs.mu.Unlock()
+	return cs.Save()
+}
+
+// RemoveScanRange removes a scan range and persists.
+func (cs *ConfigStore) RemoveScanRange(sr ScanRange) error {
+	cs.mu.Lock()
+	// Initialize from defaults if empty
+	if len(cs.cfg.ScanRanges) == 0 {
+		cs.cfg.ScanRanges = make([]ScanRange, len(DefaultScanRanges))
+		copy(cs.cfg.ScanRanges, DefaultScanRanges)
+	}
+	filtered := cs.cfg.ScanRanges[:0]
+	for _, existing := range cs.cfg.ScanRanges {
+		if existing.Start != sr.Start || existing.End != sr.End {
+			filtered = append(filtered, existing)
+		}
+	}
+	cs.cfg.ScanRanges = filtered
+	cs.mu.Unlock()
+	return cs.Save()
+}
+
+// ManualPorts returns a copy of the manual ports.
+func (cs *ConfigStore) ManualPorts() []ManualPort {
+	cs.mu.RLock()
+	defer cs.mu.RUnlock()
+	out := make([]ManualPort, len(cs.cfg.ManualPorts))
+	copy(out, cs.cfg.ManualPorts)
+	return out
+}
+
+// AddManualPort adds a manual port and persists.
+func (cs *ConfigStore) AddManualPort(mp ManualPort) error {
+	cs.mu.Lock()
+	// Replace if same port exists
+	filtered := cs.cfg.ManualPorts[:0]
+	for _, existing := range cs.cfg.ManualPorts {
+		if existing.Port != mp.Port {
+			filtered = append(filtered, existing)
+		}
+	}
+	cs.cfg.ManualPorts = append(filtered, mp)
+	cs.mu.Unlock()
+	return cs.Save()
+}
+
+// RemoveManualPort removes a manual port and persists.
+func (cs *ConfigStore) RemoveManualPort(port int) error {
+	cs.mu.Lock()
+	filtered := cs.cfg.ManualPorts[:0]
+	for _, existing := range cs.cfg.ManualPorts {
+		if existing.Port != port {
+			filtered = append(filtered, existing)
+		}
+	}
+	cs.cfg.ManualPorts = filtered
+	cs.mu.Unlock()
+	return cs.Save()
 }

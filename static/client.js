@@ -40,10 +40,14 @@
     el.innerHTML = state.ports.map(function(p) {
       const detail = [p.serviceName, p.title].filter(Boolean).join(' — ');
       const mapped = state.mappings.find(function(m) { return m.targetPort === p.port; });
+      const sourceBadge = p.source === 'manual'
+        ? '<span class="source-badge manual">manual</span>'
+        : '<span class="source-badge scan">scan</span>';
       return '<div class="port-item">' +
         '<div class="port-info">' +
           '<span class="status-dot ' + (p.healthy ? 'online' : 'offline') + '"></span>' +
           '<span class="port-number">:' + p.port + '</span>' +
+          sourceBadge +
           '<span class="port-detail">' + escapeHtml(detail) + '</span>' +
         '</div>' +
         (mapped
@@ -53,6 +57,10 @@
                 'onkeydown="if(event.key===\'Enter\')mapDomain(' + p.port + ')">' +
               '<button class="btn btn-primary" onclick="mapDomain(' + p.port + ')">Map</button>' +
             '</div>'
+        ) +
+        (p.source === 'manual'
+          ? '<button class="btn btn-danger btn-sm" onclick="removePort(' + p.port + ')">Remove</button>'
+          : ''
         ) +
       '</div>';
     }).join('');
@@ -95,6 +103,12 @@
 
   window.removeMapping = function(domain) {
     fetch('/api/mappings?domain=' + encodeURIComponent(domain), {
+      method: 'DELETE'
+    });
+  };
+
+  window.removePort = function(port) {
+    fetch('/api/ports?port=' + port, {
       method: 'DELETE'
     });
   };

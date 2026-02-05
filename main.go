@@ -39,8 +39,22 @@ func main() {
 		cmdList()
 	case "status":
 		cmdStatus()
+	case "scan-range":
+		if len(os.Args) < 3 {
+			fmt.Fprintln(os.Stderr, "usage: portgate scan-range <add|remove|list> [start-end]")
+			os.Exit(1)
+		}
+		cmdScanRange(os.Args[2:])
+	case "add-port":
+		cmdAddPort(os.Args[2:])
+	case "remove-port":
+		if len(os.Args) < 3 {
+			fmt.Fprintln(os.Stderr, "usage: portgate remove-port <port>")
+			os.Exit(1)
+		}
+		cmdRemovePort(os.Args[2])
 	default:
-		fmt.Fprintf(os.Stderr, "unknown command: %s\ncommands: start, add, remove, list, status\n", os.Args[1])
+		fmt.Fprintf(os.Stderr, "unknown command: %s\ncommands: start, add, remove, list, status, scan-range, add-port, remove-port\n", os.Args[1])
 		os.Exit(1)
 	}
 }
@@ -59,7 +73,7 @@ func cmdStart() {
 	hub := NewHub(cs)
 	go hub.Run()
 
-	scanner := NewScanner(10*time.Second, func(ports []DiscoveredPort) {
+	scanner := NewScanner(10*time.Second, cs, func(ports []DiscoveredPort) {
 		hub.SetPorts(ports)
 	})
 
@@ -180,10 +194,133 @@ func cmdStatus() {
 		if !p.Healthy {
 			status = "○"
 		}
+		source := ""
+		if p.Source == "manual" {
+			source = " [manual]"
+		}
 		detail := p.ServiceName
 		if p.Title != "" {
 			detail += " — " + p.Title
 		}
-		fmt.Printf("  %s :%d  %s\n", status, p.Port, detail)
+		fmt.Printf("  %s :%d  %s%s\n", status, p.Port, detail, source)
 	}
+}
+
+func cmdScanRange(args []string) {
+	switch args[0] {
+	case "list":
+		cs, err := NewConfigStore("")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "config: %v\n", err)
+			os.Exit(1)
+		}
+		ranges := cs.ScanRanges()
+		if len(ranges) == 0 {
+			fmt.Println("No scan ranges configured")
+			return
+		}
+		fmt.Println("Scan ranges:")
+		for _, r := range ranges {
+			fmt.Printf("  %d-%d\n", r.Start, r.End)
+		}
+
+	case "add":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: portgate scan-range add <start>-<end>")
+			os.Exit(1)
+		}
+		sr := parseScanRange(args[1])
+		cs, err := NewConfigStore("")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "config: %v\n", err)
+			os.Exit(1)
+		}
+		if err := cs.AddScanRange(sr); err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Added scan range %d-%d\n", sr.Start, sr.End)
+
+	case "remove":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "usage: portgate scan-range remove <start>-<end>")
+			os.Exit(1)
+		}
+		sr := parseScanRange(args[1])
+		cs, err := NewConfigStore("")
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "config: %v\n", err)
+			os.Exit(1)
+		}
+		if err := cs.RemoveScanRange(sr); err != nil {
+			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Removed scan range %d-%d\n", sr.Start, sr.End)
+
+	default:
+		fmt.Fprintf(os.Stderr, "unknown scan-range subcommand: %s\nsubcommands: add, remove, list\n", args[0])
+		os.Exit(1)
+	}
+}
+
+func parseScanRange(s string) ScanRange {
+	var start, end int
+	n, err := fmt.Sscanf(s, "%d-%d", &start, &end)
+	if err != nil || n != 2 || start > end || start < 1 || end > 65535 {
+		fmt.Fprintf(os.Stderr, "invalid range: %s (expected start-end, e.g. 9000-9999)\n", s)
+		os.Exit(1)
+	}
+	return ScanRange{Start: start, End: end}
+}
+
+func cmdAddPort(args []string) {
+	fs := flag.NewFlagSet("add-port", flag.ExitOnError)
+	name := fs.String("name", "", "optional name for the port")
+	fs.Parse(args)
+
+	if fs.NArg() < 1 {
+		fmt.Fprintln(os.Stderr, "usage: portgate add-port <port> [--name \"my-app\"]")
+		os.Exit(1)
+	}
+
+	var port int
+	if _, err := fmt.Sscanf(fs.Arg(0), "%d", &port); err != nil || port < 1 || port > 65535 {
+		fmt.Fprintf(os.Stderr, "invalid port: %s\n", fs.Arg(0))
+		os.Exit(1)
+	}
+
+	cs, err := NewConfigStore("")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "config: %v\n", err)
+		os.Exit(1)
+	}
+	mp := ManualPort{Port: port, Name: *name}
+	if err := cs.AddManualPort(mp); err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+	if *name != "" {
+		fmt.Printf("Registered port %d (%s)\n", port, *name)
+	} else {
+		fmt.Printf("Registered port %d\n", port)
+	}
+}
+
+func cmdRemovePort(portStr string) {
+	var port int
+	if _, err := fmt.Sscanf(portStr, "%d", &port); err != nil {
+		fmt.Fprintf(os.Stderr, "invalid port: %s\n", portStr)
+		os.Exit(1)
+	}
+	cs, err := NewConfigStore("")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "config: %v\n", err)
+		os.Exit(1)
+	}
+	if err := cs.RemoveManualPort(port); err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Printf("Removed manual port %d\n", port)
 }

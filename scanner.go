@@ -11,24 +11,18 @@ import (
 	"time"
 )
 
-var scanRanges = [][2]int{
-	{3000, 3999},
-	{4000, 4099},
-	{5000, 5999},
-	{8000, 8999},
-}
-
 var titleRe = regexp.MustCompile(`(?i)<title[^>]*>([^<]+)</title>`)
 
 // Scanner scans TCP ports and detects HTTP services.
 type Scanner struct {
 	interval time.Duration
+	config   *ConfigStore
 	onChange func([]DiscoveredPort)
 }
 
-// NewScanner creates a scanner with the given interval and change callback.
-func NewScanner(interval time.Duration, onChange func([]DiscoveredPort)) *Scanner {
-	return &Scanner{interval: interval, onChange: onChange}
+// NewScanner creates a scanner with the given interval, config store, and change callback.
+func NewScanner(interval time.Duration, config *ConfigStore, onChange func([]DiscoveredPort)) *Scanner {
+	return &Scanner{interval: interval, config: config, onChange: onChange}
 }
 
 // Run starts scanning in a loop until ctx is cancelled.
@@ -59,20 +53,55 @@ func (s *Scanner) scan() []DiscoveredPort {
 	var ports []DiscoveredPort
 	now := time.Now()
 
-	for _, r := range scanRanges {
-		for port := r[0]; port <= r[1]; port++ {
+	// Track which ports were found by scanning so we can mark manual ports correctly
+	scannedPorts := make(map[int]bool)
+
+	// Scan configurable ranges
+	ranges := s.config.ScanRanges()
+	for _, r := range ranges {
+		for port := r.Start; port <= r.End; port++ {
 			if isOpen(port) {
 				dp := DiscoveredPort{
 					Port:     port,
 					Protocol: "tcp",
 					Healthy:  true,
 					LastSeen: now,
+					Source:   "scan",
 				}
 				s.probeHTTP(&dp)
 				ports = append(ports, dp)
+				scannedPorts[port] = true
 			}
 		}
 	}
+
+	// Add manual ports — health-check each one
+	for _, mp := range s.config.ManualPorts() {
+		if scannedPorts[mp.Port] {
+			// Already found by scan — update the source to show both, keep as scan
+			// but ensure we don't duplicate; the scan result already has it
+			continue
+		}
+		dp := DiscoveredPort{
+			Port:     mp.Port,
+			Protocol: "tcp",
+			Healthy:  isOpen(mp.Port),
+			LastSeen: now,
+			Source:   "manual",
+		}
+		if mp.Name != "" {
+			dp.Title = mp.Name
+		}
+		if dp.Healthy {
+			s.probeHTTP(&dp)
+			// Preserve manual name if probeHTTP didn't find a title
+			if dp.Title == "" && mp.Name != "" {
+				dp.Title = mp.Name
+			}
+		}
+		ports = append(ports, dp)
+	}
+
 	return ports
 }
 

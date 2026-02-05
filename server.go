@@ -3,6 +3,7 @@ package main
 import (
 	"embed"
 	"encoding/json"
+	"fmt"
 	"io/fs"
 	"log"
 	"net/http"
@@ -91,8 +92,103 @@ func DashboardHandler(hub *Hub) http.Handler {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/api/ports", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(hub.GetPorts())
+		switch r.Method {
+		case http.MethodGet:
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(hub.GetPorts())
+
+		case http.MethodPost:
+			var req PortRequest
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				http.Error(w, "bad request", http.StatusBadRequest)
+				return
+			}
+			if req.Port < 1 || req.Port > 65535 {
+				http.Error(w, "port must be 1-65535", http.StatusBadRequest)
+				return
+			}
+			mp := ManualPort{Port: req.Port, Name: req.Name}
+			if err := hub.config.AddManualPort(mp); err != nil {
+				http.Error(w, "save failed", http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(mp)
+
+		case http.MethodDelete:
+			portStr := r.URL.Query().Get("port")
+			if portStr == "" {
+				http.Error(w, "port required", http.StatusBadRequest)
+				return
+			}
+			var port int
+			if _, err := fmt.Sscanf(portStr, "%d", &port); err != nil {
+				http.Error(w, "invalid port", http.StatusBadRequest)
+				return
+			}
+			if err := hub.config.RemoveManualPort(port); err != nil {
+				http.Error(w, "save failed", http.StatusInternalServerError)
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
+
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	mux.HandleFunc("/api/scan-ranges", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(hub.config.ScanRanges())
+
+		case http.MethodPost:
+			var req ScanRangeRequest
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				http.Error(w, "bad request", http.StatusBadRequest)
+				return
+			}
+			if req.Start < 1 || req.End > 65535 || req.Start > req.End {
+				http.Error(w, "invalid range", http.StatusBadRequest)
+				return
+			}
+			sr := ScanRange{Start: req.Start, End: req.End}
+			if err := hub.config.AddScanRange(sr); err != nil {
+				http.Error(w, "save failed", http.StatusInternalServerError)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusCreated)
+			json.NewEncoder(w).Encode(sr)
+
+		case http.MethodDelete:
+			startStr := r.URL.Query().Get("start")
+			endStr := r.URL.Query().Get("end")
+			if startStr == "" || endStr == "" {
+				http.Error(w, "start and end required", http.StatusBadRequest)
+				return
+			}
+			var start, end int
+			if _, err := fmt.Sscanf(startStr, "%d", &start); err != nil {
+				http.Error(w, "invalid start", http.StatusBadRequest)
+				return
+			}
+			if _, err := fmt.Sscanf(endStr, "%d", &end); err != nil {
+				http.Error(w, "invalid end", http.StatusBadRequest)
+				return
+			}
+			sr := ScanRange{Start: start, End: end}
+			if err := hub.config.RemoveScanRange(sr); err != nil {
+				http.Error(w, "save failed", http.StatusInternalServerError)
+				return
+			}
+			w.WriteHeader(http.StatusNoContent)
+
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
 	})
 
 	mux.HandleFunc("/api/mappings", func(w http.ResponseWriter, r *http.Request) {
