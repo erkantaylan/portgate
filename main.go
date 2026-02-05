@@ -15,6 +15,8 @@ import (
 	"time"
 )
 
+var version = "dev"
+
 func main() {
 	if len(os.Args) < 2 {
 		os.Args = append(os.Args, "start")
