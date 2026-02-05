@@ -43,6 +43,9 @@
       const sourceBadge = p.source === 'manual'
         ? '<span class="source-badge manual">manual</span>'
         : '<span class="source-badge scan">scan</span>';
+      const exePathHtml = p.exePath
+        ? '<div class="exe-path" title="' + escapeHtml(p.exePath) + '">' + escapeHtml(p.exePath) + '</div>'
+        : '';
       return '<div class="port-item">' +
         '<div class="port-info">' +
           '<span class="status-dot ' + (p.healthy ? 'online' : 'offline') + '"></span>' +
@@ -50,6 +53,7 @@
           sourceBadge +
           '<span class="port-detail">' + escapeHtml(detail) + '</span>' +
         '</div>' +
+        exePathHtml +
         (mapped
           ? '<span class="mapping-domain">' + escapeHtml(mapped.domain) + '.localhost</span>'
           : '<div class="map-form">' +

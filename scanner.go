@@ -67,6 +67,7 @@ func (s *Scanner) scan() []DiscoveredPort {
 					Healthy:  true,
 					LastSeen: now,
 					Source:   "scan",
+					ExePath:  findExeByPort(port),
 				}
 				s.probeHTTP(&dp)
 				ports = append(ports, dp)
@@ -78,8 +79,15 @@ func (s *Scanner) scan() []DiscoveredPort {
 	// Add manual ports — health-check each one
 	for _, mp := range s.config.ManualPorts() {
 		if scannedPorts[mp.Port] {
-			// Already found by scan — update the source to show both, keep as scan
-			// but ensure we don't duplicate; the scan result already has it
+			// Already found by scan — but apply manual path override if set
+			if mp.Path != "" {
+				for i := range ports {
+					if ports[i].Port == mp.Port {
+						ports[i].ExePath = mp.Path
+						break
+					}
+				}
+			}
 			continue
 		}
 		dp := DiscoveredPort{
@@ -91,6 +99,12 @@ func (s *Scanner) scan() []DiscoveredPort {
 		}
 		if mp.Name != "" {
 			dp.Title = mp.Name
+		}
+		// Use manually-specified path, or try to detect it
+		if mp.Path != "" {
+			dp.ExePath = mp.Path
+		} else if dp.Healthy {
+			dp.ExePath = findExeByPort(mp.Port)
 		}
 		if dp.Healthy {
 			s.probeHTTP(&dp)

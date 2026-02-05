@@ -107,7 +107,7 @@ func DashboardHandler(hub *Hub) http.Handler {
 				http.Error(w, "port must be 1-65535", http.StatusBadRequest)
 				return
 			}
-			mp := ManualPort{Port: req.Port, Name: req.Name}
+			mp := ManualPort{Port: req.Port, Name: req.Name, Path: req.Path}
 			if err := hub.config.AddManualPort(mp); err != nil {
 				http.Error(w, "save failed", http.StatusInternalServerError)
 				return

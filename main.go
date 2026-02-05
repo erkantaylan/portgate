@@ -210,6 +210,9 @@ func cmdStatus() {
 			detail += " — " + p.Title
 		}
 		fmt.Printf("  %s :%d  %s%s\n", status, p.Port, detail, source)
+		if p.ExePath != "" {
+			fmt.Printf("    %s\n", p.ExePath)
+		}
 	}
 }
 
@@ -284,10 +287,11 @@ func parseScanRange(s string) ScanRange {
 func cmdAddPort(args []string) {
 	fs := flag.NewFlagSet("add-port", flag.ExitOnError)
 	name := fs.String("name", "", "optional name for the port")
+	path := fs.String("path", "", "optional install path of the application")
 	fs.Parse(args)
 
 	if fs.NArg() < 1 {
-		fmt.Fprintln(os.Stderr, "usage: portgate add-port <port> [--name \"my-app\"]")
+		fmt.Fprintln(os.Stderr, "usage: portgate add-port <port> [--name \"my-app\"] [--path /usr/bin/app]")
 		os.Exit(1)
 	}
 
@@ -302,7 +306,7 @@ func cmdAddPort(args []string) {
 		fmt.Fprintf(os.Stderr, "config: %v\n", err)
 		os.Exit(1)
 	}
-	mp := ManualPort{Port: port, Name: *name}
+	mp := ManualPort{Port: port, Name: *name, Path: *path}
 	if err := cs.AddManualPort(mp); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)

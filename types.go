@@ -15,13 +15,15 @@ type DiscoveredPort struct {
 	Title       string    `json:"title"`
 	Healthy     bool      `json:"healthy"`
 	LastSeen    time.Time `json:"lastSeen"`
-	Source      string    `json:"source"` // "scan" or "manual"
+	Source      string    `json:"source"`  // "scan" or "manual"
+	ExePath     string    `json:"exePath"` // filesystem path of the listening process
 }
 
 // ManualPort is a user-registered port persisted in config.
 type ManualPort struct {
 	Port int    `json:"port"`
 	Name string `json:"name,omitempty"`
+	Path string `json:"path,omitempty"` // optional user-specified install path
 }
 
 // ScanRange defines a range of ports to scan.
@@ -50,6 +52,7 @@ type Config struct {
 type PortRequest struct {
 	Port int    `json:"port"`
 	Name string `json:"name,omitempty"`
+	Path string `json:"path,omitempty"`
 }
 
 // ScanRangeRequest is the POST body for adding/removing a scan range.
