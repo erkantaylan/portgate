@@ -35,6 +35,10 @@ main {
   max-width: 1400px;
 }
 
+main > .panel:nth-child(3) {
+  grid-column: 1 / -1;
+}
+
 @media (max-width: 800px) {
   main { grid-template-columns: 1fr; }
 }
@@ -222,3 +226,49 @@ main {
 
 .conn-status.connected { background: var(--green); }
 .conn-status.disconnected { background: var(--red); }
+
+.add-port-form, .add-range-form {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.add-port-form input, .add-range-form input {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.85rem;
+}
+
+.add-port-form input[type="number"], .add-range-form input[type="number"] {
+  width: 100px;
+}
+
+.add-port-form input[type="text"] {
+  width: 140px;
+}
+
+.add-port-form input:focus, .add-range-form input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.range-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.range-label {
+  font-family: monospace;
+  font-weight: 600;
+  color: var(--accent);
+}

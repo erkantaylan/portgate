@@ -74,11 +74,13 @@ func (h *Hub) GetPorts() []DiscoveredPort {
 
 func (h *Hub) broadcastUpdate() {
 	msg := struct {
-		Ports    []DiscoveredPort `json:"ports"`
-		Mappings []DomainMapping  `json:"mappings"`
+		Ports      []DiscoveredPort `json:"ports"`
+		Mappings   []DomainMapping  `json:"mappings"`
+		ScanRanges []ScanRange      `json:"scan_ranges"`
 	}{
-		Ports:    h.GetPorts(),
-		Mappings: h.config.Mappings(),
+		Ports:      h.GetPorts(),
+		Mappings:   h.config.Mappings(),
+		ScanRanges: h.config.ScanRanges(),
 	}
 	data, err := json.Marshal(WSMessage{Type: "update", Data: msg})
 	if err != nil {
@@ -112,6 +114,7 @@ func DashboardHandler(hub *Hub) http.Handler {
 				http.Error(w, "save failed", http.StatusInternalServerError)
 				return
 			}
+			hub.broadcastUpdate()
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusCreated)
 			json.NewEncoder(w).Encode(mp)
@@ -131,6 +134,7 @@ func DashboardHandler(hub *Hub) http.Handler {
 				http.Error(w, "save failed", http.StatusInternalServerError)
 				return
 			}
+			hub.broadcastUpdate()
 			w.WriteHeader(http.StatusNoContent)
 
 		default:
@@ -159,6 +163,7 @@ func DashboardHandler(hub *Hub) http.Handler {
 				http.Error(w, "save failed", http.StatusInternalServerError)
 				return
 			}
+			hub.broadcastUpdate()
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusCreated)
 			json.NewEncoder(w).Encode(sr)
@@ -184,6 +189,7 @@ func DashboardHandler(hub *Hub) http.Handler {
 				http.Error(w, "save failed", http.StatusInternalServerError)
 				return
 			}
+			hub.broadcastUpdate()
 			w.WriteHeader(http.StatusNoContent)
 
 		default:
@@ -265,11 +271,13 @@ func DashboardHandler(hub *Hub) http.Handler {
 
 		// Send initial state
 		msg := struct {
-			Ports    []DiscoveredPort `json:"ports"`
-			Mappings []DomainMapping  `json:"mappings"`
+			Ports      []DiscoveredPort `json:"ports"`
+			Mappings   []DomainMapping  `json:"mappings"`
+			ScanRanges []ScanRange      `json:"scan_ranges"`
 		}{
-			Ports:    hub.GetPorts(),
-			Mappings: hub.config.Mappings(),
+			Ports:      hub.GetPorts(),
+			Mappings:   hub.config.Mappings(),
+			ScanRanges: hub.config.ScanRanges(),
 		}
 		data, _ := json.Marshal(WSMessage{Type: "update", Data: msg})
 		client.send <- data

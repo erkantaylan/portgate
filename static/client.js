@@ -1,6 +1,6 @@
 (function() {
   let ws;
-  let state = { ports: [], mappings: [] };
+  let state = { ports: [], mappings: [], scanRanges: [] };
 
   function connect() {
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -15,6 +15,7 @@
       if (msg.type === 'update') {
         state.ports = msg.data.ports || [];
         state.mappings = msg.data.mappings || [];
+        state.scanRanges = msg.data.scan_ranges || [];
         render();
       }
     };
@@ -28,6 +29,7 @@
   function render() {
     renderPorts();
     renderMappings();
+    renderScanRanges();
   }
 
   function renderPorts() {
@@ -97,6 +99,65 @@
       '</div>';
     }).join('');
   }
+
+  function renderScanRanges() {
+    var el = document.getElementById('scan-ranges');
+    if (!state.scanRanges.length) {
+      el.innerHTML = '<div class="empty">No scan ranges configured</div>';
+      return;
+    }
+
+    el.innerHTML = state.scanRanges.map(function(r) {
+      return '<div class="range-item">' +
+        '<span class="range-label">' + r.start + ' – ' + r.end + '</span>' +
+        '<button class="btn btn-danger btn-sm" onclick="removeScanRange(' + r.start + ',' + r.end + ')">Remove</button>' +
+      '</div>';
+    }).join('');
+  }
+
+  window.addScanRange = function() {
+    var startEl = document.getElementById('add-range-start');
+    var endEl = document.getElementById('add-range-end');
+    var start = parseInt(startEl.value, 10);
+    var end = parseInt(endEl.value, 10);
+    if (!start || !end || start < 1 || end > 65535 || start > end) {
+      alert('Enter a valid range (1-65535, start <= end)');
+      return;
+    }
+    fetch('/api/scan-ranges', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ start: start, end: end })
+    }).then(function(r) {
+      if (r.ok) { startEl.value = ''; endEl.value = ''; }
+      else r.text().then(function(t) { alert('Error: ' + t); });
+    });
+  };
+
+  window.removeScanRange = function(start, end) {
+    fetch('/api/scan-ranges?start=' + start + '&end=' + end, {
+      method: 'DELETE'
+    });
+  };
+
+  window.addPort = function() {
+    var portEl = document.getElementById('add-port-number');
+    var nameEl = document.getElementById('add-port-name');
+    var pathEl = document.getElementById('add-port-path');
+    var port = parseInt(portEl.value, 10);
+    if (!port || port < 1 || port > 65535) {
+      alert('Enter a valid port number (1-65535)');
+      return;
+    }
+    fetch('/api/ports', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ port: port, name: nameEl.value.trim(), path: pathEl.value.trim() })
+    }).then(function(r) {
+      if (r.ok) { portEl.value = ''; nameEl.value = ''; pathEl.value = ''; }
+      else r.text().then(function(t) { alert('Error: ' + t); });
+    });
+  };
 
   window.mapDomain = function(port) {
     const input = document.getElementById('map-input-' + port);
