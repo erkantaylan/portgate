@@ -74,13 +74,15 @@ func (h *Hub) GetPorts() []DiscoveredPort {
 
 func (h *Hub) broadcastUpdate() {
 	msg := struct {
-		Ports      []DiscoveredPort `json:"ports"`
-		Mappings   []DomainMapping  `json:"mappings"`
-		ScanRanges []ScanRange      `json:"scan_ranges"`
+		Ports        []DiscoveredPort `json:"ports"`
+		Mappings     []DomainMapping  `json:"mappings"`
+		ScanRanges   []ScanRange      `json:"scan_ranges"`
+		DomainSuffix string           `json:"domain_suffix"`
 	}{
-		Ports:      h.GetPorts(),
-		Mappings:   h.config.Mappings(),
-		ScanRanges: h.config.ScanRanges(),
+		Ports:        h.GetPorts(),
+		Mappings:     h.config.Mappings(),
+		ScanRanges:   h.config.ScanRanges(),
+		DomainSuffix: h.config.DomainSuffix(),
 	}
 	data, err := json.Marshal(WSMessage{Type: "update", Data: msg})
 	if err != nil {
@@ -214,7 +216,7 @@ func DashboardHandler(hub *Hub) http.Handler {
 				return
 			}
 			domain := strings.ToLower(strings.TrimSpace(req.Domain))
-			domain = strings.TrimSuffix(domain, ".localhost")
+			domain = strings.TrimSuffix(domain, "."+hub.config.DomainSuffix())
 			if domain == "portgate" || domain == "" {
 				http.Error(w, "reserved domain", http.StatusBadRequest)
 				return
@@ -257,6 +259,38 @@ func DashboardHandler(hub *Hub) http.Handler {
 		}
 	})
 
+	mux.HandleFunc("/api/domain-suffix", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]string{"suffix": hub.config.DomainSuffix()})
+
+		case http.MethodPut:
+			var req struct {
+				Suffix string `json:"suffix"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+				http.Error(w, "bad request", http.StatusBadRequest)
+				return
+			}
+			suffix := strings.ToLower(strings.TrimSpace(req.Suffix))
+			if suffix == "" {
+				http.Error(w, "suffix required", http.StatusBadRequest)
+				return
+			}
+			if err := hub.config.SetDomainSuffix(suffix); err != nil {
+				http.Error(w, "save failed", http.StatusInternalServerError)
+				return
+			}
+			hub.broadcastUpdate()
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(map[string]string{"suffix": suffix})
+
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
 	mux.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		conn, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
@@ -271,13 +305,15 @@ func DashboardHandler(hub *Hub) http.Handler {
 
 		// Send initial state
 		msg := struct {
-			Ports      []DiscoveredPort `json:"ports"`
-			Mappings   []DomainMapping  `json:"mappings"`
-			ScanRanges []ScanRange      `json:"scan_ranges"`
+			Ports        []DiscoveredPort `json:"ports"`
+			Mappings     []DomainMapping  `json:"mappings"`
+			ScanRanges   []ScanRange      `json:"scan_ranges"`
+			DomainSuffix string           `json:"domain_suffix"`
 		}{
-			Ports:      hub.GetPorts(),
-			Mappings:   hub.config.Mappings(),
-			ScanRanges: hub.config.ScanRanges(),
+			Ports:        hub.GetPorts(),
+			Mappings:     hub.config.Mappings(),
+			ScanRanges:   hub.config.ScanRanges(),
+			DomainSuffix: hub.config.DomainSuffix(),
 		}
 		data, _ := json.Marshal(WSMessage{Type: "update", Data: msg})
 		client.send <- data

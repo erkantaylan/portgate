@@ -1,6 +1,6 @@
 (function() {
   let ws;
-  let state = { ports: [], mappings: [], scanRanges: [] };
+  let state = { ports: [], mappings: [], scanRanges: [], domainSuffix: 'localhost' };
 
   function connect() {
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -16,6 +16,7 @@
         state.ports = msg.data.ports || [];
         state.mappings = msg.data.mappings || [];
         state.scanRanges = msg.data.scan_ranges || [];
+        state.domainSuffix = msg.data.domain_suffix || 'localhost';
         render();
       }
     };
@@ -30,6 +31,7 @@
     renderPorts();
     renderMappings();
     renderScanRanges();
+    renderSuffix();
   }
 
   function renderPorts() {
@@ -57,7 +59,7 @@
         '</div>' +
         exePathHtml +
         (mapped
-          ? '<span class="mapping-domain">' + escapeHtml(mapped.domain) + '.localhost</span>'
+          ? '<span class="mapping-domain">' + escapeHtml(mapped.domain) + '.' + escapeHtml(state.domainSuffix) + '</span>'
           : '<div class="map-form">' +
               '<input type="text" placeholder="subdomain" id="map-input-' + p.port + '" ' +
                 'onkeydown="if(event.key===\'Enter\')mapDomain(' + p.port + ')">' +
@@ -88,7 +90,7 @@
       return '<div class="mapping-item">' +
         '<div class="mapping-info">' +
           '<span class="status-dot ' + (online ? 'online' : 'offline') + '"></span>' +
-          '<span class="mapping-domain">' + escapeHtml(m.domain) + '.localhost</span>' +
+          '<span class="mapping-domain">' + escapeHtml(m.domain) + '.' + escapeHtml(state.domainSuffix) + '</span>' +
           systemBadge +
           '<span class="mapping-target">→ :' + m.targetPort + '</span>' +
         '</div>' +
@@ -114,6 +116,53 @@
       '</div>';
     }).join('');
   }
+
+  function renderSuffix() {
+    var input = document.getElementById('domain-suffix');
+    var note = document.getElementById('suffix-note');
+    var saveBtn = document.getElementById('save-suffix-btn');
+    if (input && input !== document.activeElement) {
+      input.value = state.domainSuffix;
+    }
+    if (note) {
+      note.style.display = state.domainSuffix !== 'localhost' ? '' : 'none';
+    }
+    if (saveBtn && input && input !== document.activeElement) {
+      saveBtn.style.display = 'none';
+    }
+  }
+
+  // Show save button when suffix input changes
+  document.addEventListener('DOMContentLoaded', function() {
+    var input = document.getElementById('domain-suffix');
+    if (input) {
+      input.addEventListener('input', function() {
+        var saveBtn = document.getElementById('save-suffix-btn');
+        if (saveBtn) {
+          saveBtn.style.display = input.value.trim() !== state.domainSuffix ? '' : 'none';
+        }
+      });
+      input.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') saveDomainSuffix();
+      });
+    }
+  });
+
+  window.saveDomainSuffix = function() {
+    var input = document.getElementById('domain-suffix');
+    var suffix = input.value.trim().toLowerCase();
+    if (!suffix) {
+      alert('Domain suffix cannot be empty');
+      return;
+    }
+    fetch('/api/domain-suffix', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ suffix: suffix })
+    }).then(function(r) {
+      if (!r.ok) r.text().then(function(t) { alert('Error: ' + t); });
+    });
+  };
 
   window.addScanRange = function() {
     var startEl = document.getElementById('add-range-start');

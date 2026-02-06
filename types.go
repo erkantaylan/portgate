@@ -46,6 +46,7 @@ type Config struct {
 	ScanIntervalSec int             `json:"scanIntervalSec"`
 	ScanRanges      []ScanRange     `json:"scanRanges,omitempty"`
 	ManualPorts     []ManualPort    `json:"manualPorts,omitempty"`
+	DomainSuffix    string          `json:"domainSuffix,omitempty"`
 }
 
 // PortRequest is the POST body for registering a manual port.

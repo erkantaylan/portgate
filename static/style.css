@@ -27,6 +27,60 @@ header {
 header h1 { font-size: 1.5rem; }
 .subtitle { color: var(--text-dim); font-size: 0.875rem; margin-top: 0.25rem; }
 
+.settings-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 2rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.settings-label {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.settings-input-group {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.settings-dot {
+  color: var(--text-dim);
+  font-family: monospace;
+  font-size: 0.9rem;
+}
+
+.settings-input-group input {
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--accent);
+  font-size: 0.85rem;
+  font-family: monospace;
+  font-weight: 600;
+  width: 160px;
+}
+
+.settings-input-group input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.suffix-note {
+  font-size: 0.75rem;
+  color: var(--orange);
+  width: 100%;
+  padding-left: 0;
+}
+
 main {
   display: grid;
   grid-template-columns: 1fr 1fr;

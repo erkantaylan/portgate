@@ -12,6 +12,17 @@
     <h1>⚡ Portgate</h1>
     <p class="subtitle">Local Reverse Proxy Dashboard</p>
   </header>
+  <div class="settings-bar">
+    <label class="settings-label">Domain Suffix</label>
+    <div class="settings-input-group">
+      <span class="settings-dot">.</span>
+      <input type="text" id="domain-suffix" placeholder="localhost" spellcheck="false">
+      <button class="btn btn-primary btn-sm" id="save-suffix-btn" onclick="saveDomainSuffix()" style="display:none">Save</button>
+    </div>
+    <div id="suffix-note" class="suffix-note" style="display:none">
+      Non-localhost suffixes require hosts file or DNS configuration.
+    </div>
+  </div>
   <main>
     <section class="panel">
       <h2>Discovered Ports</h2>

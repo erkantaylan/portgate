@@ -22,7 +22,8 @@ func ProxyHandler(hub *Hub, dashboardAddr string) http.Handler {
 			host = h
 		}
 
-		subdomain := extractSubdomain(host)
+		suffix := hub.config.DomainSuffix()
+		subdomain := extractSubdomain(host, suffix)
 
 		// Reserved: bare localhost or portgate → dashboard
 		if subdomain == "" || subdomain == "portgate" {
@@ -34,7 +35,7 @@ func ProxyHandler(hub *Hub, dashboardAddr string) http.Handler {
 		port := hub.config.LookupPort(subdomain)
 		if port == 0 {
 			// Unknown domain → redirect to dashboard
-			http.Redirect(w, r, fmt.Sprintf("http://localhost:8080"), http.StatusTemporaryRedirect)
+			http.Redirect(w, r, fmt.Sprintf("http://%s", dashboardAddr), http.StatusTemporaryRedirect)
 			return
 		}
 
@@ -63,12 +64,13 @@ func ProxyHandler(hub *Hub, dashboardAddr string) http.Handler {
 	})
 }
 
-func extractSubdomain(host string) string {
+func extractSubdomain(host, suffix string) string {
 	// host is like "livemd.localhost" or "localhost"
-	if !strings.HasSuffix(host, ".localhost") {
+	dotSuffix := "." + suffix
+	if !strings.HasSuffix(host, dotSuffix) {
 		return ""
 	}
-	sub := strings.TrimSuffix(host, ".localhost")
+	sub := strings.TrimSuffix(host, dotSuffix)
 	if sub == "" {
 		return ""
 	}

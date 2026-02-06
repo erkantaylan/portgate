@@ -218,6 +218,24 @@ func (cs *ConfigStore) EnsureDefaultMapping(dashPort int) error {
 	return cs.Save()
 }
 
+// DomainSuffix returns the configured domain suffix, defaulting to "localhost".
+func (cs *ConfigStore) DomainSuffix() string {
+	cs.mu.RLock()
+	defer cs.mu.RUnlock()
+	if cs.cfg.DomainSuffix == "" {
+		return "localhost"
+	}
+	return cs.cfg.DomainSuffix
+}
+
+// SetDomainSuffix updates the domain suffix and persists.
+func (cs *ConfigStore) SetDomainSuffix(suffix string) error {
+	cs.mu.Lock()
+	cs.cfg.DomainSuffix = suffix
+	cs.mu.Unlock()
+	return cs.Save()
+}
+
 // RemoveManualPort removes a manual port and persists.
 func (cs *ConfigStore) RemoveManualPort(port int) error {
 	cs.mu.Lock()

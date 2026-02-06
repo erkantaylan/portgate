@@ -75,7 +75,7 @@ func cmdHelp() {
 Usage: portgate <command> [options]
 
 Commands:
-  start                        Start the proxy and dashboard server
+  start [--domain-suffix HOST]  Start the proxy and dashboard server
   add <domain> <port>          Map a subdomain to a port
   remove <domain>              Remove a domain mapping
   list                         List current domain mappings
@@ -93,11 +93,19 @@ func cmdStart() {
 	startFlags := flag.NewFlagSet("start", flag.ExitOnError)
 	dashPort := startFlags.Int("dashboard-port", 8080, "dashboard listen port")
 	proxyPort := startFlags.Int("proxy-port", 80, "reverse proxy listen port")
+	domainSuffix := startFlags.String("domain-suffix", "", "domain suffix (default: localhost)")
 	startFlags.Parse(os.Args[2:])
 
 	cs, err := NewConfigStore("")
 	if err != nil {
 		log.Fatalf("config: %v", err)
+	}
+
+	// Apply domain suffix from CLI flag if provided
+	if *domainSuffix != "" {
+		if err := cs.SetDomainSuffix(*domainSuffix); err != nil {
+			log.Printf("warning: could not set domain suffix: %v", err)
+		}
 	}
 
 	// Ensure portgate.localhost system mapping exists for the dashboard
@@ -174,7 +182,16 @@ func cmdAdd(domain, portStr string) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusCreated {
-		fmt.Printf("Mapped %s.localhost → :%d\n", domain, port)
+		// Fetch current suffix for display
+		suffix := "localhost"
+		if sResp, err := http.Get("http://localhost:8080/api/domain-suffix"); err == nil {
+			defer sResp.Body.Close()
+			var s struct{ Suffix string }
+			if json.NewDecoder(sResp.Body).Decode(&s) == nil && s.Suffix != "" {
+				suffix = s.Suffix
+			}
+		}
+		fmt.Printf("Mapped %s.%s → :%d\n", domain, suffix, port)
 	} else {
 		io.Copy(os.Stderr, resp.Body)
 		os.Exit(1)
@@ -211,8 +228,17 @@ func cmdList() {
 		fmt.Println("No mappings configured")
 		return
 	}
+	// Fetch current suffix for display
+	suffix := "localhost"
+	if sResp, err := http.Get("http://localhost:8080/api/domain-suffix"); err == nil {
+		defer sResp.Body.Close()
+		var s struct{ Suffix string }
+		if json.NewDecoder(sResp.Body).Decode(&s) == nil && s.Suffix != "" {
+			suffix = s.Suffix
+		}
+	}
 	for _, m := range mappings {
-		fmt.Printf("  %s.localhost → :%d\n", m.Domain, m.TargetPort)
+		fmt.Printf("  %s.%s → :%d\n", m.Domain, suffix, m.TargetPort)
 	}
 }
 
@@ -225,7 +251,16 @@ func cmdStatus() {
 	defer resp.Body.Close()
 	var ports []DiscoveredPort
 	json.NewDecoder(resp.Body).Decode(&ports)
-	fmt.Printf("Portgate is running — %d ports discovered\n", len(ports))
+	// Fetch current suffix for display
+	suffix := "localhost"
+	if sResp, err := http.Get("http://localhost:8080/api/domain-suffix"); err == nil {
+		defer sResp.Body.Close()
+		var s struct{ Suffix string }
+		if json.NewDecoder(sResp.Body).Decode(&s) == nil && s.Suffix != "" {
+			suffix = s.Suffix
+		}
+	}
+	fmt.Printf("Portgate is running — %d ports discovered (domain: .%s)\n", len(ports), suffix)
 	for _, p := range ports {
 		status := "●"
 		if !p.Healthy {
