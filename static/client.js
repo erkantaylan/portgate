@@ -36,14 +36,15 @@
 
   function renderPorts() {
     const el = document.getElementById('ports');
-    if (!state.ports.length) {
-      el.innerHTML = '<div class="empty">No ports discovered yet...</div>';
+    const mappedPorts = new Set(state.mappings.map(function(m) { return m.targetPort; }));
+    const unmappedPorts = state.ports.filter(function(p) { return !mappedPorts.has(p.port); });
+    if (!unmappedPorts.length) {
+      el.innerHTML = '<div class="empty">No unmapped ports discovered...</div>';
       return;
     }
 
-    el.innerHTML = state.ports.map(function(p) {
+    el.innerHTML = unmappedPorts.map(function(p) {
       const detail = [p.serviceName, p.title].filter(Boolean).join(' — ');
-      const mapped = state.mappings.find(function(m) { return m.targetPort === p.port; });
       const sourceBadge = p.source === 'manual'
         ? '<span class="source-badge manual">manual</span>'
         : '<span class="source-badge scan">scan</span>';
@@ -58,14 +59,11 @@
           '<span class="port-detail">' + escapeHtml(detail) + '</span>' +
         '</div>' +
         exePathHtml +
-        (mapped
-          ? '<span class="mapping-domain">' + escapeHtml(mapped.domain) + '.' + escapeHtml(state.domainSuffix) + '</span>'
-          : '<div class="map-form">' +
-              '<input type="text" placeholder="subdomain" id="map-input-' + p.port + '" ' +
-                'onkeydown="if(event.key===\'Enter\')mapDomain(' + p.port + ')">' +
-              '<button class="btn btn-primary" onclick="mapDomain(' + p.port + ')">Map</button>' +
-            '</div>'
-        ) +
+        '<div class="map-form">' +
+            '<input type="text" placeholder="subdomain" id="map-input-' + p.port + '" ' +
+              'onkeydown="if(event.key===\'Enter\')mapDomain(' + p.port + ')">' +
+            '<button class="btn btn-primary" onclick="mapDomain(' + p.port + ')">Map</button>' +
+          '</div>' +
         (p.source === 'manual'
           ? '<button class="btn btn-danger btn-sm" onclick="removePort(' + p.port + ')">Remove</button>'
           : ''
