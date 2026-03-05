@@ -83,7 +83,7 @@ header h1 { font-size: 1.5rem; }
 
 main {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 3fr 2fr;
   gap: 1.5rem;
   padding: 1.5rem 2rem;
   max-width: 1400px;
@@ -222,26 +222,66 @@ main > .panel:nth-child(3) {
 
 .btn-primary:hover { opacity: 0.9; }
 
-.map-form {
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
   display: flex;
-  gap: 0.5rem;
   align-items: center;
-  margin-top: 0.5rem;
+  justify-content: center;
+  z-index: 100;
 }
 
-.map-form input {
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.5rem;
+  min-width: 320px;
+  max-width: 400px;
+}
+
+.modal h3 {
+  font-size: 1rem;
+  margin-bottom: 1rem;
+}
+
+.modal-input-row {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+}
+
+.modal-input-row input {
+  flex: 1;
   padding: 0.4rem 0.6rem;
   border: 1px solid var(--border);
   border-radius: 4px;
   background: var(--bg);
   color: var(--text);
   font-size: 0.85rem;
-  width: 140px;
 }
 
-.map-form input:focus {
+.modal-input-row input:focus {
   outline: none;
   border-color: var(--accent);
+}
+
+.modal-input-row .suffix-label {
+  color: var(--text-dim);
+  font-family: monospace;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
 }
 
 .mapping-domain {

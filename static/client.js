@@ -59,11 +59,7 @@
           '<span class="port-detail">' + escapeHtml(detail) + '</span>' +
         '</div>' +
         exePathHtml +
-        '<div class="map-form">' +
-            '<input type="text" placeholder="subdomain" id="map-input-' + p.port + '" ' +
-              'onkeydown="if(event.key===\'Enter\')mapDomain(' + p.port + ')">' +
-            '<button class="btn btn-primary" onclick="mapDomain(' + p.port + ')">Map</button>' +
-          '</div>' +
+        '<button class="btn btn-primary btn-sm" onclick="openMapModal(' + p.port + ')">Map</button>' +
         (p.source === 'manual'
           ? '<button class="btn btn-danger btn-sm" onclick="removePort(' + p.port + ')">Remove</button>'
           : ''
@@ -206,9 +202,47 @@
     });
   };
 
-  window.mapDomain = function(port) {
-    const input = document.getElementById('map-input-' + port);
-    const domain = input.value.trim().toLowerCase();
+  window.openMapModal = function(port) {
+    var existing = document.getElementById('map-modal');
+    if (existing) existing.remove();
+
+    var overlay = document.createElement('div');
+    overlay.id = 'map-modal';
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML =
+      '<div class="modal">' +
+        '<h3>Map port :' + port + ' to domain</h3>' +
+        '<div class="modal-input-row">' +
+          '<input type="text" id="map-modal-input" placeholder="subdomain" autofocus>' +
+          '<span class="suffix-label">.' + escapeHtml(state.domainSuffix) + '</span>' +
+        '</div>' +
+        '<div class="modal-actions">' +
+          '<button class="btn" onclick="closeMapModal()">Cancel</button>' +
+          '<button class="btn btn-primary" onclick="submitMapModal(' + port + ')">Map</button>' +
+        '</div>' +
+      '</div>';
+
+    overlay.addEventListener('click', function(e) {
+      if (e.target === overlay) closeMapModal();
+    });
+
+    document.body.appendChild(overlay);
+    setTimeout(function() { document.getElementById('map-modal-input').focus(); }, 0);
+
+    document.getElementById('map-modal-input').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') submitMapModal(port);
+      if (e.key === 'Escape') closeMapModal();
+    });
+  };
+
+  window.closeMapModal = function() {
+    var el = document.getElementById('map-modal');
+    if (el) el.remove();
+  };
+
+  window.submitMapModal = function(port) {
+    var input = document.getElementById('map-modal-input');
+    var domain = input.value.trim().toLowerCase();
     if (!domain) return;
 
     fetch('/api/mappings', {
@@ -217,6 +251,7 @@
       body: JSON.stringify({ domain: domain, port: port })
     }).then(function(r) {
       if (!r.ok) r.text().then(function(t) { alert('Error: ' + t); });
+      else closeMapModal();
     });
   };
 
