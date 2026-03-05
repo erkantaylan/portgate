@@ -27,6 +27,11 @@
     };
   }
 
+  fetch('/api/version').then(function(r) { return r.json(); }).then(function(d) {
+    var el = document.getElementById('version-tag');
+    if (el && d.version) el.textContent = d.version;
+  }).catch(function() {});
+
   function render() {
     renderPorts();
     renderMappings();

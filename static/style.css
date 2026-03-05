@@ -24,7 +24,8 @@ header {
   border-bottom: 1px solid var(--border);
 }
 
-header h1 { font-size: 1.5rem; }
+header h1 { font-size: 1.5rem; display: flex; align-items: center; gap: 0.5rem; }
+.version-tag { font-size: 0.75rem; font-weight: 400; color: var(--text-dim); background: var(--surface); border: 1px solid var(--border); border-radius: 4px; padding: 2px 6px; }
 .subtitle { color: var(--text-dim); font-size: 0.875rem; margin-top: 0.25rem; }
 
 .settings-bar {

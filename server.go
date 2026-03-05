@@ -95,6 +95,11 @@ func (h *Hub) broadcastUpdate() {
 func DashboardHandler(hub *Hub) http.Handler {
 	mux := http.NewServeMux()
 
+	mux.HandleFunc("/api/version", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]string{"version": version})
+	})
+
 	mux.HandleFunc("/api/ports", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
