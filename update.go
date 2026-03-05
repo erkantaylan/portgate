@@ -26,25 +26,33 @@ type githubAsset struct {
 }
 
 // isNewer returns true if remote is a higher semver than local.
-// Both should be in "vMAJOR.MINOR.PATCH" format.
+// Both should be in "vMAJOR.MINOR.PATCH[-pre]" format.
+// A pre-release suffix (e.g. -dev, -rc1) is considered older than the
+// same version without a suffix: v0.4.1-dev < v0.4.1.
 func isNewer(local, remote string) bool {
-	parse := func(v string) (int, int, int, bool) {
+	parse := func(v string) (int, int, int, bool, bool) {
 		v = strings.TrimPrefix(v, "v")
 		parts := strings.SplitN(v, ".", 3)
 		if len(parts) != 3 {
-			return 0, 0, 0, false
+			return 0, 0, 0, false, false
 		}
 		major, err1 := strconv.Atoi(parts[0])
 		minor, err2 := strconv.Atoi(parts[1])
-		patch, err3 := strconv.Atoi(parts[2])
-		if err1 != nil || err2 != nil || err3 != nil {
-			return 0, 0, 0, false
+		patchStr := parts[2]
+		pre := false
+		if idx := strings.IndexByte(patchStr, '-'); idx != -1 {
+			pre = true
+			patchStr = patchStr[:idx]
 		}
-		return major, minor, patch, true
+		patch, err3 := strconv.Atoi(patchStr)
+		if err1 != nil || err2 != nil || err3 != nil {
+			return 0, 0, 0, false, false
+		}
+		return major, minor, patch, pre, true
 	}
 
-	lMaj, lMin, lPat, lok := parse(local)
-	rMaj, rMin, rPat, rok := parse(remote)
+	lMaj, lMin, lPat, lPre, lok := parse(local)
+	rMaj, rMin, rPat, rPre, rok := parse(remote)
 	if !lok || !rok {
 		return false
 	}
@@ -55,7 +63,12 @@ func isNewer(local, remote string) bool {
 	if rMin != lMin {
 		return rMin > lMin
 	}
-	return rPat > lPat
+	if rPat != lPat {
+		return rPat > lPat
+	}
+	// Same numeric version: pre-release is older than release.
+	// remote is newer only if local has pre-release and remote does not.
+	return lPre && !rPre
 }
 
 // binaryAssetName returns the expected GitHub release asset name for this platform.
