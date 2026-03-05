@@ -248,6 +248,11 @@ main > .panel:nth-child(3) {
   font-weight: 600;
   color: var(--accent);
   font-family: monospace;
+  text-decoration: none;
+}
+
+.mapping-domain:hover {
+  text-decoration: underline;
 }
 
 .mapping-target {

@@ -59,7 +59,7 @@
         '</div>' +
         exePathHtml +
         (mapped
-          ? '<span class="mapping-domain">' + escapeHtml(mapped.domain) + '.' + escapeHtml(state.domainSuffix) + '</span>'
+          ? '<a class="mapping-domain" href="http://' + escapeHtml(mapped.domain) + '.' + escapeHtml(state.domainSuffix) + '" target="_blank">' + escapeHtml(mapped.domain) + '.' + escapeHtml(state.domainSuffix) + '</a>'
           : '<div class="map-form">' +
               '<input type="text" placeholder="subdomain" id="map-input-' + p.port + '" ' +
                 'onkeydown="if(event.key===\'Enter\')mapDomain(' + p.port + ')">' +
@@ -90,7 +90,7 @@
       return '<div class="mapping-item">' +
         '<div class="mapping-info">' +
           '<span class="status-dot ' + (online ? 'online' : 'offline') + '"></span>' +
-          '<span class="mapping-domain">' + escapeHtml(m.domain) + '.' + escapeHtml(state.domainSuffix) + '</span>' +
+          '<a class="mapping-domain" href="http://' + escapeHtml(m.domain) + '.' + escapeHtml(state.domainSuffix) + '" target="_blank">' + escapeHtml(m.domain) + '.' + escapeHtml(state.domainSuffix) + '</a>' +
           systemBadge +
           '<span class="mapping-target">→ :' + m.targetPort + '</span>' +
         '</div>' +
