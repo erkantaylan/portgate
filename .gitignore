@@ -4,3 +4,6 @@
 .beads/
 portgate
 portgate.exe
+
+# Gas Town (added by gt)
+__pycache__/
