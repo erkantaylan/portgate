@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -123,7 +124,7 @@ func AuthMiddleware(config *ConfigStore, sessions *SessionStore, next http.Handl
 
 		// Not authenticated
 		// API/WebSocket requests get 401
-		if r.URL.Path == "/ws" || len(r.URL.Path) >= 4 && r.URL.Path[:4] == "/api" {
+		if r.URL.Path == "/ws" || strings.HasPrefix(r.URL.Path, "/api") {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
