@@ -249,3 +249,40 @@ func (cs *ConfigStore) RemoveManualPort(port int) error {
 	cs.mu.Unlock()
 	return cs.Save()
 }
+
+// MasterPasswordHash returns the stored bcrypt hash, or "" if not set.
+func (cs *ConfigStore) MasterPasswordHash() string {
+	cs.mu.RLock()
+	defer cs.mu.RUnlock()
+	return cs.cfg.MasterPasswordHash
+}
+
+// SetMasterPasswordHash stores a bcrypt hash and persists.
+func (cs *ConfigStore) SetMasterPasswordHash(hash string) error {
+	cs.mu.Lock()
+	cs.cfg.MasterPasswordHash = hash
+	cs.mu.Unlock()
+	return cs.Save()
+}
+
+// SessionExpiry returns the session expiry duration.
+func (cs *ConfigStore) SessionExpiry() time.Duration {
+	cs.mu.RLock()
+	defer cs.mu.RUnlock()
+	if cs.cfg.SessionExpirySec > 0 {
+		return time.Duration(cs.cfg.SessionExpirySec) * time.Second
+	}
+	return 24 * time.Hour // default 24h
+}
+
+// BypassAuthForLocalhost returns whether localhost requests skip auth.
+func (cs *ConfigStore) BypassAuthForLocalhost() bool {
+	cs.mu.RLock()
+	defer cs.mu.RUnlock()
+	return cs.cfg.BypassAuthForLocalhost
+}
+
+// AuthEnabled returns true if a master password is configured.
+func (cs *ConfigStore) AuthEnabled() bool {
+	return cs.MasterPasswordHash() != ""
+}

@@ -42,11 +42,15 @@ type DomainMapping struct {
 
 // Config is the persisted configuration.
 type Config struct {
-	Mappings        []DomainMapping `json:"mappings"`
-	ScanIntervalSec int             `json:"scanIntervalSec"`
-	ScanRanges      []ScanRange     `json:"scanRanges,omitempty"`
-	ManualPorts     []ManualPort    `json:"manualPorts,omitempty"`
-	DomainSuffix    string          `json:"domainSuffix,omitempty"`
+	Mappings              []DomainMapping `json:"mappings"`
+	ScanIntervalSec       int             `json:"scanIntervalSec"`
+	ScanRanges            []ScanRange     `json:"scanRanges,omitempty"`
+	ManualPorts           []ManualPort    `json:"manualPorts,omitempty"`
+	DomainSuffix          string          `json:"domainSuffix,omitempty"`
+	ExternalAccess        bool            `json:"externalAccess,omitempty"`
+	MasterPasswordHash    string          `json:"masterPasswordHash,omitempty"`
+	SessionExpirySec      int             `json:"sessionExpirySec,omitempty"`
+	BypassAuthForLocalhost bool           `json:"bypassAuthForLocalhost,omitempty"`
 }
 
 // PortRequest is the POST body for registering a manual port.

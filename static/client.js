@@ -27,7 +27,16 @@
     };
   }
 
-  fetch('/api/version').then(function(r) { return r.json(); }).then(function(d) {
+  function checkAuth(r) {
+    if (r.status === 401) {
+      window.location.href = '/login';
+      return null;
+    }
+    return r;
+  }
+
+  fetch('/api/version').then(checkAuth).then(function(r) { return r && r.json(); }).then(function(d) {
+    if (!d) return;
     var el = document.getElementById('version-tag');
     if (el && d.version) el.textContent = d.version;
   }).catch(function() {});

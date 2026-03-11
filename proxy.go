@@ -12,7 +12,8 @@ import (
 	"time"
 )
 
-// ProxyHandler returns an http.Handler that reverse-proxies based on Host header.
+// ProxyHandler returns an http.Handler that reverse-proxies based on Host header
+// (subdomain routing) and URL path (path-based routing for external access).
 // Reserved subdomains: "portgate" → dashboard, bare "localhost" → dashboard.
 func ProxyHandler(hub *Hub, dashboardAddr string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -25,43 +26,83 @@ func ProxyHandler(hub *Hub, dashboardAddr string) http.Handler {
 		suffix := hub.config.DomainSuffix()
 		subdomain := extractSubdomain(host, suffix)
 
-		// Reserved: bare localhost or portgate → dashboard
-		if subdomain == "" || subdomain == "portgate" {
-			proxyToDashboard(w, r, dashboardAddr)
-			return
+		// If subdomain routing matched, use it
+		if subdomain != "" && subdomain != "portgate" {
+			port := hub.config.LookupPort(subdomain)
+			if port != 0 {
+				proxyToPort(w, r, subdomain, port, "")
+				return
+			}
 		}
 
-		// Lookup mapping
-		port := hub.config.LookupPort(subdomain)
-		if port == 0 {
-			// Unknown domain → redirect to dashboard
-			http.Redirect(w, r, fmt.Sprintf("http://%s", dashboardAddr), http.StatusTemporaryRedirect)
-			return
+		// Try path-based routing: /{domain-name}/rest/of/path
+		if pathDomain, remaining := extractPathDomain(r.URL.Path); pathDomain != "" {
+			port := hub.config.LookupPort(pathDomain)
+			if port != 0 {
+				proxyToPort(w, r, pathDomain, port, remaining)
+				return
+			}
 		}
 
-		target := fmt.Sprintf("127.0.0.1:%d", port)
-
-		// WebSocket upgrade detection
-		if isWebSocketUpgrade(r) {
-			handleWebSocket(w, r, target)
-			return
-		}
-
-		// Regular HTTP reverse proxy
-		proxyURL, _ := url.Parse(fmt.Sprintf("http://%s", target))
-		proxy := &httputil.ReverseProxy{
-			Director: func(req *http.Request) {
-				req.URL.Scheme = proxyURL.Scheme
-				req.URL.Host = proxyURL.Host
-				req.Host = r.Host
-			},
-			ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
-				log.Printf("proxy error for %s: %v", subdomain, err)
-				http.Error(w, "502 Bad Gateway", http.StatusBadGateway)
-			},
-		}
-		proxy.ServeHTTP(w, r)
+		// Everything else → dashboard
+		proxyToDashboard(w, r, dashboardAddr)
 	})
+}
+
+// extractPathDomain extracts the first path segment as a potential domain name.
+// Returns the domain and the remaining path (with leading /).
+// e.g. "/myapp/api/data" → ("myapp", "/api/data")
+// e.g. "/" → ("", "")
+func extractPathDomain(path string) (string, string) {
+	// Remove leading slash
+	trimmed := strings.TrimPrefix(path, "/")
+	if trimmed == "" {
+		return "", ""
+	}
+	// Split on first slash
+	parts := strings.SplitN(trimmed, "/", 2)
+	domain := parts[0]
+	remaining := "/"
+	if len(parts) > 1 {
+		remaining = "/" + parts[1]
+	}
+	return domain, remaining
+}
+
+// proxyToPort reverse-proxies to the given port, optionally rewriting the path.
+// If pathPrefix is non-empty, the request URL path is set to that value
+// (stripping the domain-name prefix used in path-based routing).
+func proxyToPort(w http.ResponseWriter, r *http.Request, name string, port int, rewritePath string) {
+	target := fmt.Sprintf("127.0.0.1:%d", port)
+
+	// WebSocket upgrade detection
+	if isWebSocketUpgrade(r) {
+		if rewritePath != "" {
+			r.URL.Path = rewritePath
+		}
+		handleWebSocket(w, r, target)
+		return
+	}
+
+	// Regular HTTP reverse proxy
+	proxyURL, _ := url.Parse(fmt.Sprintf("http://%s", target))
+	proxy := &httputil.ReverseProxy{
+		Director: func(req *http.Request) {
+			req.URL.Scheme = proxyURL.Scheme
+			req.URL.Host = proxyURL.Host
+			req.Host = r.Host
+			if rewritePath != "" {
+				req.URL.Path = rewritePath
+				// Preserve query string
+				req.URL.RawQuery = r.URL.RawQuery
+			}
+		},
+		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
+			log.Printf("proxy error for %s: %v", name, err)
+			http.Error(w, "502 Bad Gateway", http.StatusBadGateway)
+		},
+	}
+	proxy.ServeHTTP(w, r)
 }
 
 func extractSubdomain(host, suffix string) string {

@@ -92,8 +92,52 @@ func (h *Hub) broadcastUpdate() {
 }
 
 // DashboardHandler returns the HTTP mux for the dashboard + API.
-func DashboardHandler(hub *Hub) http.Handler {
+func DashboardHandler(hub *Hub, sessions *SessionStore) http.Handler {
 	mux := http.NewServeMux()
+
+	// Login page (GET) and login handler (POST)
+	mux.HandleFunc("/login", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			loginSub, _ := fs.Sub(staticFS, "static")
+			f, err := loginSub.(fs.ReadFileFS).ReadFile("login.html")
+			if err != nil {
+				http.Error(w, "login page not found", http.StatusInternalServerError)
+				return
+			}
+			w.Write(f)
+		case http.MethodPost:
+			if err := r.ParseForm(); err != nil {
+				http.Error(w, "bad request", http.StatusBadRequest)
+				return
+			}
+			password := r.FormValue("password")
+			hash := hub.config.MasterPasswordHash()
+			if hash == "" || !CheckPassword(hash, password) {
+				w.Header().Set("Content-Type", "text/html; charset=utf-8")
+				loginSub, _ := fs.Sub(staticFS, "static")
+				f, _ := loginSub.(fs.ReadFileFS).ReadFile("login.html")
+				w.WriteHeader(http.StatusUnauthorized)
+				// Inject error message
+				page := strings.Replace(string(f), "<!--ERROR-->", `<p class="error">Invalid password</p>`, 1)
+				w.Write([]byte(page))
+				return
+			}
+			token := sessions.Create(hub.config.SessionExpiry())
+			http.SetCookie(w, &http.Cookie{
+				Name:     sessionCookieName,
+				Value:    token,
+				Path:     "/",
+				HttpOnly: true,
+				SameSite: http.SameSiteLaxMode,
+				MaxAge:   int(hub.config.SessionExpiry().Seconds()),
+			})
+			http.Redirect(w, r, "/", http.StatusSeeOther)
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
 
 	mux.HandleFunc("/api/version", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

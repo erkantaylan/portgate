@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"flag"
@@ -56,6 +57,8 @@ func main() {
 			os.Exit(1)
 		}
 		cmdRemovePort(os.Args[2])
+	case "set-password":
+		cmdSetPassword()
 	case "version", "--version", "-v":
 		cmdVersion()
 	case "update":
@@ -83,6 +86,7 @@ Commands:
   add-port <port> [options]    Manually register a port
   remove-port <port>           Remove a manually registered port
   scan-range <add|remove|list> Manage port scan ranges
+  set-password                 Set or update the master password for auth
   update                       Check for and apply updates
   version                      Show current version
   help                         Show this help message
@@ -125,15 +129,25 @@ func cmdStart() {
 
 	go scanner.Run(ctx)
 
+	sessions := NewSessionStore()
+
+	// Start session cleanup goroutine
+	go func() {
+		for {
+			time.Sleep(10 * time.Minute)
+			sessions.Cleanup()
+		}
+	}()
+
 	dashAddr := fmt.Sprintf(":%d", *dashPort)
 	proxyAddr := fmt.Sprintf(":%d", *proxyPort)
 
-	// Dashboard
-	dashboardHandler := DashboardHandler(hub)
+	// Dashboard (with auth middleware)
+	dashboardHandler := AuthMiddleware(cs, sessions, DashboardHandler(hub, sessions))
 	dashSrv := &http.Server{Addr: dashAddr, Handler: dashboardHandler}
 
-	// Reverse proxy
-	proxyHandler := ProxyHandler(hub, fmt.Sprintf("127.0.0.1:%d", *dashPort))
+	// Reverse proxy (with auth middleware)
+	proxyHandler := AuthMiddleware(cs, sessions, ProxyHandler(hub, fmt.Sprintf("127.0.0.1:%d", *dashPort)))
 	proxySrv := &http.Server{Addr: proxyAddr, Handler: proxyHandler}
 
 	go func() {
@@ -399,4 +413,36 @@ func cmdRemovePort(portStr string) {
 		os.Exit(1)
 	}
 	fmt.Printf("Removed manual port %d\n", port)
+}
+
+func cmdSetPassword() {
+	cs, err := NewConfigStore("")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "config: %v\n", err)
+		os.Exit(1)
+	}
+
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Print("Enter master password: ")
+	password, _ := reader.ReadString('\n')
+	password = strings.TrimSpace(password)
+
+	if password == "" {
+		fmt.Fprintln(os.Stderr, "Password cannot be empty")
+		os.Exit(1)
+	}
+
+	hash, err := HashPassword(password)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error hashing password: %v\n", err)
+		os.Exit(1)
+	}
+
+	if err := cs.SetMasterPasswordHash(hash); err != nil {
+		fmt.Fprintf(os.Stderr, "error saving password: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Println("Master password set successfully")
+	fmt.Println("Restart portgate for changes to take effect")
 }
