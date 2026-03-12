@@ -44,6 +44,22 @@ func ProxyHandler(hub *Hub, dashboardAddr string) http.Handler {
 			}
 		}
 
+		// Sub-resource routing: when a path-proxied app references absolute
+		// paths like /static/app.js, the first segment ("static") won't match
+		// any mapping. Fall back to the Referer header to find the original
+		// path-proxied domain and forward the request to the same backend.
+		if referer := r.Header.Get("Referer"); referer != "" {
+			if refURL, err := url.Parse(referer); err == nil {
+				if refDomain, _ := extractPathDomain(refURL.Path); refDomain != "" {
+					port := hub.config.LookupPort(refDomain)
+					if port != 0 {
+						proxyToPort(w, r, refDomain, port, r.URL.Path)
+						return
+					}
+				}
+			}
+		}
+
 		// Everything else → dashboard
 		proxyToDashboard(w, r, dashboardAddr)
 	})
