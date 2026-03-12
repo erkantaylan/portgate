@@ -1,15 +1,19 @@
 # Portgate
 
-Portgate is a local reverse proxy and port discovery dashboard. It automatically scans for services running on your machine, displays them in a live-updating web dashboard, and lets you route `*.localhost` subdomains to any local port.
+Portgate is a local reverse proxy and port discovery dashboard. It automatically scans for services running on your machine, displays them in a live-updating web dashboard, and lets you route traffic to any local port via `*.localhost` subdomains or path-based URLs. Optional master password authentication protects the dashboard and proxied services.
 
 ## Features
 
 - **Port scanning** — automatically discovers services on configurable port ranges
 - **Subdomain routing** — map `myapp.localhost` to any local port via `*.localhost` convention
+- **Path-based routing** — access services via `http://host/myapp/path` as an alternative to subdomains
+- **Master password auth** — protect the dashboard and proxied services with a master password and cookie-based sessions
+- **Port type filters** — filter discovered ports by HTTP/TCP/Mapped/Unmapped with persistent checkbox filters
 - **Manual port registration** — register ports that fall outside scan ranges
 - **Health checking** — continuously monitors whether discovered services are up
 - **WebSocket live updates** — dashboard refreshes in real time as ports come and go
 - **HTTP service detection** — probes discovered ports for HTTP, extracts page titles and server headers
+- **Self-update** — `portgate update` checks GitHub releases and updates the binary in place
 - **Cross-platform** — runs on Linux and Windows
 
 ## Quick Start
@@ -70,6 +74,20 @@ portgate start [--dashboard-port 8080] [--proxy-port 80]
 |------|---------|-------------|
 | `--dashboard-port` | `8080` | Port for the web dashboard and API |
 | `--proxy-port` | `80` | Port for the subdomain reverse proxy |
+
+### `portgate set-password`
+
+Set or update the master password for dashboard and proxy authentication.
+
+```bash
+portgate set-password
+# Enter master password: ****
+# Password set successfully
+```
+
+When a password is set, all routes (dashboard, API, WebSocket, proxied services) require authentication. Users are redirected to a login page and receive a session cookie on successful login. Sessions expire after 24 hours by default (configurable via `sessionExpirySec` in config).
+
+To disable authentication, remove the `masterPasswordHash` field from the config file.
 
 ### `portgate add <domain> <port>`
 
@@ -171,7 +189,10 @@ Configuration is stored as JSON and created automatically on first run.
   ],
   "manualPorts": [
     { "port": 9090, "name": "prometheus" }
-  ]
+  ],
+  "masterPasswordHash": "",
+  "sessionExpirySec": 86400,
+  "bypassAuthForLocalhost": false
 }
 ```
 
@@ -181,10 +202,17 @@ Configuration is stored as JSON and created automatically on first run.
 | `scanIntervalSec` | Seconds between scan cycles (default: 10) |
 | `scanRanges` | Port ranges to scan (defaults shown above) |
 | `manualPorts` | Manually registered ports with optional names |
+| `masterPasswordHash` | Bcrypt hash of the master password (set via `portgate set-password`) |
+| `sessionExpirySec` | Session expiry duration in seconds (default: 86400 = 24 hours) |
+| `bypassAuthForLocalhost` | Skip authentication for requests from localhost |
 
 ## How It Works
 
 **Subdomain routing:** Portgate listens on the proxy port (default 80) and inspects the `Host` header. A request to `myapp.localhost` extracts `myapp` as the subdomain, looks up the mapping, and reverse-proxies to the target port. Bare `localhost` and `portgate.localhost` route to the dashboard.
+
+**Path-based routing:** As an alternative to subdomains, services can be accessed via `http://host/myapp/path`. The first path segment is matched against configured domain mappings. The matched prefix is stripped before forwarding — `/myapp/api/data` becomes `/api/data` at the backend. This is useful when `*.localhost` subdomains are unavailable (e.g., accessing Portgate from another machine on the network).
+
+**Authentication:** When a master password is configured via `portgate set-password`, all routes are wrapped with auth middleware. Unauthenticated requests are redirected to a login page (or receive 401 for API/WebSocket calls). Sessions are cookie-based with configurable expiry. Localhost requests can optionally bypass auth via the `bypassAuthForLocalhost` config option.
 
 **Port scanning:** A background scanner runs on a configurable interval (default 10s). It attempts TCP connections to every port in the configured scan ranges. For open ports, it probes for HTTP and extracts `<title>` tags and `Server` headers to identify services.
 
@@ -195,6 +223,15 @@ Configuration is stored as JSON and created automatically on first run.
 ## API
 
 All endpoints are served on the dashboard port (default 8080).
+
+### Authentication
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/login` | Login page |
+| `POST` | `/login` | Authenticate with master password |
+
+When auth is enabled, all other endpoints return 401 (API/WebSocket) or redirect to `/login` (browser) without a valid session cookie.
 
 ### Mappings
 
