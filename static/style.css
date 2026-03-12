@@ -114,6 +114,49 @@ main > .panel:nth-child(3) {
   font-weight: 600;
 }
 
+.port-filters {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.filter-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  cursor: pointer;
+  font-size: 0.75rem;
+  user-select: none;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.filter-checkbox:hover { border-color: var(--accent); }
+.filter-checkbox.active { border-color: var(--accent); background: rgba(88, 166, 255, 0.08); }
+
+.filter-checkbox input[type="checkbox"] {
+  accent-color: var(--accent);
+  margin: 0;
+  cursor: pointer;
+}
+
+.filter-label {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text);
+}
+
+.filter-count {
+  color: var(--text-dim);
+  font-family: monospace;
+  font-size: 0.7rem;
+}
+
 .list { display: flex; flex-direction: column; gap: 0.5rem; }
 
 .port-item, .mapping-item {
@@ -192,6 +235,12 @@ main > .panel:nth-child(3) {
   background: rgba(63, 185, 80, 0.15);
   color: var(--green);
   border: 1px solid rgba(63, 185, 80, 0.3);
+}
+
+.source-badge.mapped {
+  background: rgba(188, 143, 243, 0.15);
+  color: #bc8ff3;
+  border: 1px solid rgba(188, 143, 243, 0.3);
 }
 
 .btn-sm {

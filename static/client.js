@@ -2,6 +2,19 @@
   let ws;
   let state = { ports: [], mappings: [], scanRanges: [], domainSuffix: 'localhost' };
 
+  var defaultFilters = { http: true, tcp: true, mapped: true, unmapped: true };
+  var filters = (function() {
+    try {
+      var saved = JSON.parse(localStorage.getItem('portgate-filters'));
+      if (saved && typeof saved === 'object') {
+        var f = {};
+        for (var k in defaultFilters) f[k] = saved[k] !== false;
+        return f;
+      }
+    } catch(e) {}
+    return JSON.parse(JSON.stringify(defaultFilters));
+  })();
+
   function connect() {
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
     ws = new WebSocket(proto + '//' + location.host + '/ws');
@@ -42,27 +55,72 @@
   }).catch(function() {});
 
   function render() {
+    renderPortFilters();
     renderPorts();
     renderMappings();
     renderScanRanges();
     renderSuffix();
   }
 
+  function renderPortFilters() {
+    var el = document.getElementById('port-filters');
+    if (!el) return;
+    var mappedSet = new Set(state.mappings.map(function(m) { return m.targetPort; }));
+    var counts = { http: 0, tcp: 0, mapped: 0, unmapped: 0 };
+    state.ports.forEach(function(p) {
+      if (p.serviceName === 'http') counts.http++;
+      else counts.tcp++;
+      if (mappedSet.has(p.port)) counts.mapped++;
+      else counts.unmapped++;
+    });
+    var labels = [
+      { key: 'http', label: 'HTTP' },
+      { key: 'tcp', label: 'TCP' },
+      { key: 'mapped', label: 'Mapped' },
+      { key: 'unmapped', label: 'Unmapped' }
+    ];
+    el.innerHTML = labels.map(function(f) {
+      return '<label class="filter-checkbox' + (filters[f.key] ? ' active' : '') + '">' +
+        '<input type="checkbox"' + (filters[f.key] ? ' checked' : '') +
+        ' onchange="togglePortFilter(\'' + f.key + '\', this.checked)">' +
+        '<span class="filter-label">' + f.label + '</span>' +
+        '<span class="filter-count">' + counts[f.key] + '</span>' +
+      '</label>';
+    }).join('');
+  }
+
+  window.togglePortFilter = function(key, checked) {
+    filters[key] = checked;
+    try { localStorage.setItem('portgate-filters', JSON.stringify(filters)); } catch(e) {}
+    renderPortFilters();
+    renderPorts();
+  };
+
   function renderPorts() {
-    const el = document.getElementById('ports');
-    const mappedPorts = new Set(state.mappings.map(function(m) { return m.targetPort; }));
-    const unmappedPorts = state.ports.filter(function(p) { return !mappedPorts.has(p.port); });
-    if (!unmappedPorts.length) {
-      el.innerHTML = '<div class="empty">No unmapped ports discovered...</div>';
+    var el = document.getElementById('ports');
+    var mappedSet = new Set(state.mappings.map(function(m) { return m.targetPort; }));
+    var filtered = state.ports.filter(function(p) {
+      var isMapped = mappedSet.has(p.port);
+      var mappingOk = (isMapped && filters.mapped) || (!isMapped && filters.unmapped);
+      var isHttp = p.serviceName === 'http';
+      var typeOk = (isHttp && filters.http) || (!isHttp && filters.tcp);
+      return mappingOk && typeOk;
+    });
+    if (!filtered.length) {
+      el.innerHTML = '<div class="empty">No ports match current filters</div>';
       return;
     }
 
-    el.innerHTML = unmappedPorts.map(function(p) {
-      const detail = [p.serviceName, p.title].filter(Boolean).join(' — ');
-      const sourceBadge = p.source === 'manual'
+    el.innerHTML = filtered.map(function(p) {
+      var isMapped = mappedSet.has(p.port);
+      var detail = [p.serviceName, p.title].filter(Boolean).join(' — ');
+      var sourceBadge = p.source === 'manual'
         ? '<span class="source-badge manual">manual</span>'
         : '<span class="source-badge scan">scan</span>';
-      const exePathHtml = p.exePath
+      var mappedBadge = isMapped
+        ? '<span class="source-badge mapped">mapped</span>'
+        : '';
+      var exePathHtml = p.exePath
         ? '<div class="exe-path" title="' + escapeHtml(p.exePath) + '">' + escapeHtml(p.exePath) + '</div>'
         : '';
       return '<div class="port-item">' +
@@ -70,10 +128,14 @@
           '<span class="status-dot ' + (p.healthy ? 'online' : 'offline') + '"></span>' +
           '<span class="port-number">:' + p.port + '</span>' +
           sourceBadge +
+          mappedBadge +
           '<span class="port-detail">' + escapeHtml(detail) + '</span>' +
         '</div>' +
         exePathHtml +
-        '<button class="btn btn-primary btn-sm" onclick="openMapModal(' + p.port + ')">Map</button>' +
+        (!isMapped
+          ? '<button class="btn btn-primary btn-sm" onclick="openMapModal(' + p.port + ')">Map</button>'
+          : ''
+        ) +
         (p.source === 'manual'
           ? '<button class="btn btn-danger btn-sm" onclick="removePort(' + p.port + ')">Remove</button>'
           : ''
