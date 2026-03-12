@@ -146,8 +146,10 @@ func cmdStart() {
 	dashboardHandler := AuthMiddleware(cs, sessions, DashboardHandler(hub, sessions))
 	dashSrv := &http.Server{Addr: dashAddr, Handler: dashboardHandler}
 
-	// Reverse proxy (with auth middleware)
-	proxyHandler := AuthMiddleware(cs, sessions, ProxyHandler(hub, fmt.Sprintf("127.0.0.1:%d", *dashPort)))
+	// Reverse proxy — no auth wrapping. Proxied services handle their own
+	// auth. Dashboard-bound requests are proxied to port 8080, which has
+	// its own AuthMiddleware.
+	proxyHandler := ProxyHandler(hub, fmt.Sprintf("127.0.0.1:%d", *dashPort))
 	proxySrv := &http.Server{Addr: proxyAddr, Handler: proxyHandler}
 
 	go func() {
