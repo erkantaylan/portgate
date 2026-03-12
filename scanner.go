@@ -56,10 +56,13 @@ func (s *Scanner) scan() []DiscoveredPort {
 	// Track which ports were found by scanning so we can mark manual ports correctly
 	scannedPorts := make(map[int]bool)
 
-	// Scan configurable ranges
+	// Scan configurable ranges (deduplicate across overlapping ranges)
 	ranges := s.config.ScanRanges()
 	for _, r := range ranges {
 		for port := r.Start; port <= r.End; port++ {
+			if scannedPorts[port] {
+				continue
+			}
 			if isOpen(port) {
 				dp := DiscoveredPort{
 					Port:     port,
